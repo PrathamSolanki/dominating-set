@@ -2,7 +2,7 @@ package algorithms;
 
 import java.awt.Point;
 import java.util.ArrayList;
-
+import java.util.Arrays;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -10,76 +10,209 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.TreeMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 public class DefaultTeam {
-  private ArrayList<Point> getNeighbors(Point p, ArrayList<Point> points, int edgeThreshold){
-    ArrayList<Point> neighbors = new ArrayList<Point>();
-
-    for (Point r: points) if (!p.equals(r) && p.distance(r) <= edgeThreshold) neighbors.add(r);
-    return neighbors;
-  }
-
-
-  private int getDegree(Point p, ArrayList<Point> points, int edgeThreshold) {
-    int degree = 0;
-
-    for (Point r: points) if (!p.equals(r) && p.distance(r) <= edgeThreshold) degree++;
-    return degree;
-  }
-
-
-  private boolean isDominating(ArrayList<Point> D, ArrayList<Point> P, int edgeThreshold) {
-    ArrayList<Point> dominatedPoints = new ArrayList<Point>();
-
-    for (Point d: D) {
-      dominatedPoints.addAll(getNeighbors(d, P, edgeThreshold));
-      dominatedPoints.add(d);
+  public ArrayList<Point> calculDominatingSet(ArrayList<Point> points, int edgeThreshold) {
+    //REMOVE >>>>>
+    ArrayList<Point> rest = (ArrayList<Point>)points.clone();
+    ArrayList<Point> solution = new ArrayList<>();
+    
+    //for (int i=0;i<points.size()/3;i++) result.remove(0);
+    // if (false) result = readFromFile("output0.points");
+    // else saveToFile("output",result);
+    //<<<<< REMOVE
+    
+    while (!rest.isEmpty()) {
+    	Point v = rest.get(0);
+    	for (Point r : rest) {
+    		if (degree(r, rest, edgeThreshold) > degree(v, rest, edgeThreshold)) {
+    			v = r;
+    		}
+    	}
+    	solution.add(v);
+    	rest.removeAll(neighbours(v, rest, edgeThreshold));
     }
     
-    if (dominatedPoints.size() == P.size()) return true;
-    return false;
-  }
-
-
-  private ArrayList<Point> kNaiveLocalSearch(ArrayList<Point> D, ArrayList<Point> P, int k, int edgeThreshold) {
-    ArrayList<Point> clone = new ArrayList<Point>();
-    for (Point d: D) {
-      clone = (ArrayList<Point>)D.clone();
-      clone.remove(d);
-      if (isDominating(clone, P, edgeThreshold)) break;
+    //for (int k=1; k <= 5; k++) {
+    int k = 4;	
+	int old_score = Integer.MAX_VALUE;
+    int current_score = solution.size();
+	while (current_score < old_score) {
+    	solution = improve(solution, points, edgeThreshold, k);
+    	old_score = current_score;
+    	current_score = solution.size();
     }
-    return clone;
+    //}
+    
+    return solution;
   }
-
-
-  public ArrayList<Point> calculDominatingSet(ArrayList<Point> points, int edgeThreshold) {
-    ArrayList<Point> graph = (ArrayList<Point>)points.clone();
-    ArrayList<Point> result = new ArrayList<Point>();
-
-    // for (Point p1: points) {
-    //   boolean flag = false;
-    //   for (Point p2: points) {
-    //     if (p1 == p2) continue;
-    //     else if (p1.distance(p2) <= edgeThreshold) {
-    //       flag = true;
-    //       break;
-    //     }
-    //   }
-    //   if (flag != true) graph.remove(p1);
-    //   // else if (getDegree(p1, points, edgeThreshold) < 3) graph.remove(p1);
-    // }
-
-    ArrayList<Point> rest = (ArrayList<Point>)graph.clone();
-
-    while (!rest.isEmpty()) {
-      Point v = rest.get(0);
-      for (Point r: rest) if (getDegree(r, rest, edgeThreshold) > getDegree(v, rest, edgeThreshold)) v = r;
-      result.add(v);      
-      rest.removeAll(getNeighbors(v, rest, edgeThreshold));
-      rest.remove(v);
-    }
-
-    return kNaiveLocalSearch(result, graph, 1, edgeThreshold);
+  
+  
+  private int degree(Point point, ArrayList<Point> points, int edgeThreshold) {
+	  int degree = 0;
+	  for (Point p : points) {
+		  if (p.distance(point) <= edgeThreshold) {
+			  degree++;
+		  }
+	  }
+	  return degree;
+  }
+  
+  private ArrayList<Point> neighbours(Point point, ArrayList<Point> points, int edgeThreshold) {
+	  ArrayList<Point> result = new ArrayList<>(Arrays.asList(point));
+	  
+	  for (Point p : points) {
+		  if (p.distance(point) <= edgeThreshold) {
+			  result.add(p);
+		  }
+	  }
+	  return result;
+  }
+  
+  private ArrayList<Point> improve(ArrayList<Point> solution, ArrayList<Point> points, int edgeThreshold, int k) {
+	  
+	  ArrayList<Point> newSolution = (ArrayList<Point>)solution.clone();
+	  //HashMap<Point, TreeMap<Double, Point>> distances = initDistances(solution);
+	 
+	  for (Point s1 : solution) {
+		  TreeMap<Double, Point> distances = initDistances(solution, s1);
+		  ArrayList<Point> closestPoints = findClosestPoints(distances, k);
+		  if (newSolution.containsAll(closestPoints)) {
+			  newSolution.removeAll(closestPoints);
+		  }
+		  else {
+			  continue;
+		  }
+		  
+		  Set<Point> ps = getClosePoints(points, closestPoints, edgeThreshold);
+		  for (Point[] combination : getCombinations(new ArrayList<>(ps), k-1)) {
+			  newSolution.addAll(Arrays.asList(combination));
+			  if (isDominatingSet(newSolution, points, edgeThreshold)) {
+				  return newSolution;
+			  }
+			  newSolution.removeAll(Arrays.asList(combination));
+		  }
+		  newSolution.addAll(closestPoints);
+	  }
+	  
+//	  for (Point s1 : solution) {
+//		  for (Point s2 : solution) {
+//			  
+//			  if (newSolution.contains(s1) && newSolution.contains(s2)) {
+//				  newSolution.remove(s1);
+//				  newSolution.remove(s2);
+//			  }
+//			  else if (!newSolution.contains(s1)) {
+//				  break;
+//			  }
+//			  else {
+//				  continue;
+//			  }
+//			  
+//			  boolean found = false;
+//			  for (Point p : points) {
+//				  newSolution.add(p);
+//				  if (!isDominatingSet(newSolution, points, edgeThreshold)) {
+//					  newSolution.remove(p);
+//				  }
+//				  else {
+//					  found = true;
+//					  break;
+//				  }
+//			  }
+//			  if (!found) {
+//				  newSolution.add(s1);
+//				  newSolution.add(s2);
+//			  }
+//			  
+//		  }
+//	  }
+	  
+	  return solution;
+  }
+  
+  private List<Point[]> getCombinations (List<Point> points, int k) {
+	  List<Point[]> combinations = new ArrayList<>();
+	  getCombinations_r(combinations, new Point[k], points, 0, points.size()-1, 0);
+	  return combinations;
+  }
+  
+  private void getCombinations_r (List<Point[]> combinations, Point[] data, List<Point> points, int start, int end, int index) {
+	  if (index == data.length) {
+		  Point[] combination = data.clone();
+		  combinations.add(combination);
+	  }
+	  else if (start <= end) {
+		  data[index] = points.get(start);
+		  getCombinations_r(combinations, data, points, start+1, end, index+1);
+		  getCombinations_r(combinations, data, points, start+1, end, index);
+	  }
+  }
+  
+  private TreeMap<Double, Point> initDistances (ArrayList<Point> points, Point p) {
+	  //HashMap<Point, TreeMap<Double, Point>> distances = new HashMap<>();
+	  
+	  TreeMap<Double, Point> distances = new TreeMap<>();
+	  
+	  for (Point p2: points) {
+		  distances.put(p2.distance(p), p2); // I get the point itself as well, so it is included in the closest points
+	  }
+//	  distances.put(p, distancesOfPoint);
+//	  
+//	  for (Point p : points) {
+//		  TreeMap<Double, Point> distancesOfPoint = new TreeMap<>(); 
+//		  for (Point p2: points) {
+//			  distancesOfPoint.put(p2.distance(p), p2); // I get the point itself as well, so it is included in the closest points
+//		  }
+//		  distances.put(p, distancesOfPoint);
+//	  }
+	  
+	  return distances;
+  }
+  
+  private ArrayList<Point> findClosestPoints(TreeMap<Double, Point> distances, int k) {
+	  ArrayList<Point> closestPoints = new ArrayList<>();
+	 
+	  for (int i=0; i < k; i++) {
+		  closestPoints.add(distances.get(distances.firstKey()));
+		  distances.remove(distances.firstKey());  // Each point of the solution will be processed only one for each improve operation
+	  }
+	  
+	  return closestPoints;
+  }
+  
+  private boolean isDominatingSet(ArrayList<Point> solution, ArrayList<Point> points, int edgeThreshold) {
+	  for (Point p : points) {
+		  boolean found = false;
+		  for (Point s : solution) {
+			  if (p.distance(s) <= edgeThreshold) {
+				  found = true;
+				  break;
+			  }
+		  }
+		  if (found == false) return false;
+	  }
+	  return true;
+  }
+  
+  private Set<Point> getClosePoints(ArrayList<Point> points, ArrayList<Point> referencePoints, int edgeThreshold) {
+	  Set<Point> result = new HashSet<>();
+	  
+	  for (Point p : points) {
+		  for (Point r : referencePoints) {
+			  if (p.distance(r) <= edgeThreshold) {
+				  result.add(p);
+				  break;
+			  }
+		  }
+	  }
+	  
+	  return result;
   }
   
   
